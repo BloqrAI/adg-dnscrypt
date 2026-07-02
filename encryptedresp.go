@@ -14,32 +14,32 @@ import (
 // encryptedResponse is used for encrypting/decrypting server responses.
 //
 // NOTE: Server responses are using the following schema:
-// <dnscrypt-response> ::= <resolver-magic> <nonce> <encrypted-response>
-// <encrypted-response> ::= AE(<shared-key>, <nonce>, <resolver-response> <resolver-response-pad>)
+//
+//	<dnscrypt-response> ::= <resolver-magic> <nonce> <encrypted-response>
+//	<encrypted-response> ::= AE(<shared-key>, <nonce>, <resolver-response> <resolver-response-pad>)
 type encryptedResponse struct {
-	// ESVersion is the encryption to use.
-	ESVersion CryptoConstruction
+	// esVersion is the encryption to use.
+	esVersion CryptoConstruction
 
-	// Nonce - <nonce> ::= <client-nonce> <resolver-nonce>
-	// <client-nonce> ::= the nonce sent by the client in the related query.
-	Nonce nonce
+	// nonce is used to decrypt a response.
+	nonce nonce
 }
 
-// encrypt encrypts the server response.  r.ESVersion and r.Nonce must be set.
+// encrypt encrypts the server response.  r.esVersion and r.nonce must be set.
 func (r *encryptedResponse) encrypt(
 	packet []byte,
 	sharedKey [SharedKeySize]byte,
 ) (response []byte, err error) {
-	_, _ = rand.Read(r.Nonce[12:16])
-	binary.BigEndian.PutUint64(r.Nonce[16:nonceSize], uint64(time.Now().UnixNano()))
+	_, _ = rand.Read(r.nonce[12:16])
+	binary.BigEndian.PutUint64(r.nonce[16:nonceSize], uint64(time.Now().UnixNano()))
 
 	response = append(response, resolverMagic[:]...)
-	response = append(response, r.Nonce[:]...)
+	response = append(response, r.nonce[:]...)
 
 	padded := pad(packet)
 
-	serverNonce := r.Nonce
-	switch r.ESVersion {
+	serverNonce := r.nonce
+	switch r.esVersion {
 	case XChacha20Poly1305:
 		response = xsecretbox.Seal(response, serverNonce[:], padded, sharedKey[:])
 	case XSalsa20Poly1305:
@@ -53,7 +53,7 @@ func (r *encryptedResponse) encrypt(
 	return response, nil
 }
 
-// decrypt decrypts the server response.  r.ESVersion must be set.
+// decrypt decrypts the server response.  r.esVersion must be set.
 func (r *encryptedResponse) decrypt(
 	response []byte,
 	sharedKey [SharedKeySize]byte,
@@ -70,28 +70,28 @@ func (r *encryptedResponse) decrypt(
 		return nil, ErrInvalidResolverMagic
 	}
 
-	copy(r.Nonce[:], response[resolverMagicSize:nonceSize+resolverMagicSize])
+	copy(r.nonce[:], response[resolverMagicSize:nonceSize+resolverMagicSize])
 
 	// NOTE: Ensure that the client nonce received from the server matches the
 	// actual client nonce.  See AGDNS-4183.
-	if !bytes.Equal(r.Nonce[:nonceSize/2], clientNonce[:nonceSize/2]) {
+	if !bytes.Equal(r.nonce[:nonceSize/2], clientNonce[:nonceSize/2]) {
 		return nil, ErrUnexpectedNonce
 	}
 
 	encryptedResponse := response[nonceSize+resolverMagicSize:]
-	switch r.ESVersion {
+	switch r.esVersion {
 	case XChacha20Poly1305:
-		packet, err = xsecretbox.Open(nil, r.Nonce[:], encryptedResponse, sharedKey[:])
+		packet, err = xsecretbox.Open(nil, r.nonce[:], encryptedResponse, sharedKey[:])
 		if err != nil {
-			return nil, fmt.Errorf("decrypting response: %s: %w", r.ESVersion, err)
+			return nil, fmt.Errorf("decrypting response: %s: %w", r.esVersion, err)
 		}
 	case XSalsa20Poly1305:
 		var xsalsaServerNonce nonce
-		copy(xsalsaServerNonce[:], r.Nonce[:])
+		copy(xsalsaServerNonce[:], r.nonce[:])
 		var ok bool
 		packet, ok = secretbox.Open(nil, encryptedResponse, &xsalsaServerNonce, &sharedKey)
 		if !ok {
-			return nil, fmt.Errorf("decrypting response: %s: %w", r.ESVersion, ErrInvalidResponse)
+			return nil, fmt.Errorf("decrypting response: %s: %w", r.esVersion, ErrInvalidResponse)
 		}
 	default:
 		return nil, ErrESVersion

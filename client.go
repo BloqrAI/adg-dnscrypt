@@ -246,9 +246,9 @@ func (c *Client) encrypt(
 	info *ResolverInfo,
 ) (msg []byte, clientNonce nonce, err error) {
 	q := &encryptedQuery{
-		ESVersion:   info.ResolverCert.ESVersion,
-		ClientMagic: info.ResolverCert.ClientMagic,
-		ClientPk:    info.PublicKey,
+		esVersion:   info.ResolverCert.ESVersion,
+		clientMagic: info.ResolverCert.ClientMagic,
+		clientPk:    info.PublicKey,
 	}
 	query, err := m.Pack()
 	if err != nil {
@@ -275,7 +275,7 @@ func (c *Client) decrypt(
 	info *ResolverInfo,
 ) (msg *dns.Msg, err error) {
 	dr := &encryptedResponse{
-		ESVersion: info.ResolverCert.ESVersion,
+		esVersion: info.ResolverCert.ESVersion,
 	}
 
 	response, err := dr.decrypt(b, info.SharedKey, clientNonce)

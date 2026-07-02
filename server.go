@@ -339,15 +339,15 @@ func (s *Server) serveDNS(ctx context.Context, rw ResponseWriter, r *dns.Msg) (e
 // encrypt encrypts DNSCrypt response.  m must not be nil.
 func (s *Server) encrypt(m *dns.Msg, q *encryptedQuery) (encrypted []byte, err error) {
 	r := &encryptedResponse{
-		ESVersion: q.ESVersion,
-		Nonce:     q.Nonce,
+		esVersion: q.esVersion,
+		nonce:     q.nonce,
 	}
 	packet, err := m.Pack()
 	if err != nil {
 		return nil, fmt.Errorf("packing dns message: %w", err)
 	}
 
-	sharedKey, err := computeSharedKey(q.ESVersion, &s.resolverCert.ResolverSk, &q.ClientPk)
+	sharedKey, err := computeSharedKey(q.esVersion, &s.resolverCert.ResolverSk, &q.clientPk)
 	if err != nil {
 		return nil, fmt.Errorf("computing shared key: %w", err)
 	}
@@ -358,8 +358,8 @@ func (s *Server) encrypt(m *dns.Msg, q *encryptedQuery) (encrypted []byte, err e
 // decrypt decrypts the incoming message and returns a DNS message to process.
 func (s *Server) decrypt(b []byte) (msg *dns.Msg, query *encryptedQuery, err error) {
 	query = &encryptedQuery{
-		ESVersion:   s.resolverCert.ESVersion,
-		ClientMagic: s.resolverCert.ClientMagic,
+		esVersion:   s.resolverCert.ESVersion,
+		clientMagic: s.resolverCert.ClientMagic,
 	}
 	decrypted, err := query.decrypt(b, s.resolverCert.ResolverSk)
 	if err != nil {

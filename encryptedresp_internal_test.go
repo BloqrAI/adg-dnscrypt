@@ -37,10 +37,10 @@ func testDNSCryptResponseEncryptDecrypt(tb testing.TB, esVersion CryptoConstruct
 	require.NoError(tb, err)
 
 	r1 := &encryptedResponse{
-		ESVersion: esVersion,
+		esVersion: esVersion,
 	}
 
-	_, _ = rand.Read(r1.Nonce[:nonceSize/12])
+	_, _ = rand.Read(r1.nonce[:nonceSize/2])
 
 	packet := make([]byte, 100)
 	_, _ = rand.Read(packet[:])
@@ -49,22 +49,22 @@ func testDNSCryptResponseEncryptDecrypt(tb testing.TB, esVersion CryptoConstruct
 	require.NoError(tb, err)
 
 	r2 := &encryptedResponse{
-		ESVersion: esVersion,
+		esVersion: esVersion,
 	}
 
-	decrypted, err := r2.decrypt(encrypted, clientSharedKey, r1.Nonce)
+	decrypted, err := r2.decrypt(encrypted, clientSharedKey, r1.nonce)
 	require.NoError(tb, err)
 
 	assert.Equal(tb, packet, decrypted)
 
-	_, err = r2.decrypt(packet, clientSharedKey, r1.Nonce)
+	_, err = r2.decrypt(packet, clientSharedKey, r1.nonce)
 	require.Error(tb, err)
 
-	_, err = r2.decrypt([]byte{}, clientSharedKey, r1.Nonce)
+	_, err = r2.decrypt([]byte{}, clientSharedKey, r1.nonce)
 	require.Error(tb, err)
 
 	b := make([]byte, len(resolverMagic)+nonceSize+xsecretbox.TagSize+minDNSPacketSize)
 	_, _ = rand.Read(b)
-	_, err = r2.decrypt(b, clientSharedKey, r1.Nonce)
+	_, err = r2.decrypt(b, clientSharedKey, r1.nonce)
 	require.Error(tb, err)
 }
